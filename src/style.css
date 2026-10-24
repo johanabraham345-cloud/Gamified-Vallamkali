@@ -1,0 +1,58 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; padding: 10px 14px; background: #1f6f5c; color: #fff; }
+button:active { transform: scale(0.98); }
+input { font: inherit; padding: 12px; border-radius: 10px; border: 1px solid #aaa; width: 100%; }
+.small { font-size: 12px; opacity: 0.8; }
+.hidden { display: none !important; }
+.error { color: #ff8a80; min-height: 1.2em; }
+.config-error { max-width: 560px; margin: 60px auto; padding: 20px; font-family: system-ui; line-height: 1.5; }
+
+/* Landing */
+.landing { background: #0e3b33; color: #fff; display: grid; place-items: center; }
+.landing main { text-align: center; padding: 16px; width: 100%; max-width: 420px; }
+.big-btn { display: block; margin: 14px 0; padding: 18px; border-radius: 14px; background: #f3b33d; color: #222; text-decoration: none; font-size: 20px; font-weight: 700; }
+.big-btn.alt { background: #fff; }
+
+/* Host (laptop) */
+.host { overflow: hidden; background: #000; color: #fff; }
+#stage { position: fixed; inset: 0; }
+#panel { position: fixed; top: 12px; left: 12px; width: 280px; max-height: calc(100% - 24px); overflow: auto;
+  background: rgba(0,0,0,0.72); padding: 14px; border-radius: 14px; z-index: 5; }
+#panel h2 { margin: 0 0 8px; }
+.code-label { font-size: 12px; opacity: 0.7; }
+.code { font-size: 44px; font-weight: 800; letter-spacing: 6px; }
+#qr { width: 160px !important; height: 160px !important; background: #fff; border-radius: 8px; margin: 6px 0; }
+.toggle { display: block; margin: 10px 0; font-size: 13px; }
+.btn-row { display: flex; gap: 8px; margin: 6px 0; }
+.btn-row button { flex: 1; font-size: 13px; }
+.teams { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+.teams h3 { margin: 8px 0 4px; }
+.teams ol { margin: 0; padding-left: 18px; }
+#hud { position: fixed; top: 12px; left: 310px; right: 12px; display: flex; justify-content: space-between; gap: 12px; z-index: 4; pointer-events: none; }
+.hud-team, .hud-mid { background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 10px; }
+.hud-team.red span { color: #ff6b5e; } .hud-team.blue span { color: #6ea2ff; }
+.bar { width: 160px; height: 8px; background: #333; border-radius: 4px; margin-top: 6px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: #4cd964; transition: width 0.2s; }
+#bigText { position: fixed; inset: 0; display: grid; place-items: center; font-size: 120px; font-weight: 900;
+  text-shadow: 0 4px 20px #000; pointer-events: none; z-index: 6; }
+.rower-label { font-size: 11px; padding: 1px 5px; border-radius: 6px; background: rgba(0,0,0,0.65); color: #fff;
+  border: 2px solid #888; white-space: nowrap; }
+.rower-label.good { border-color: #4cd964; } .rower-label.ok { border-color: #ffcc00; } .rower-label.bad { border-color: #ff3b30; }
+.marker-label { font-size: 12px; color: #fff; text-shadow: 0 1px 3px #000; }
+.finish-label { font-size: 18px; font-weight: 800; color: #fff; background: #c62828; padding: 2px 8px; border-radius: 6px; }
+
+/* Phone */
+.play { background: #0e3b33; color: #fff; }
+.screen { min-height: 100%; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; align-items: stretch; justify-content: center; max-width: 480px; margin: 0 auto; text-align: center; }
+.big { padding: 16px; font-size: 18px; font-weight: 700; background: #f3b33d; color: #222; }
+.big.alt { background: #fff; }
+.or { opacity: 0.6; }
+.seat { font-size: 22px; font-weight: 800; padding: 12px; border-radius: 12px; background: #333; }
+.phase { font-size: 18px; }
+.beat { width: 180px; height: 180px; margin: 10px auto; border-radius: 50%; border: 4px solid rgba(255,255,255,0.4); display: grid; place-items: center; }
+#beatDot { width: 120px; height: 120px; border-radius: 50%; background: #fff; transition: transform 0.05s linear; }
+.feedback { font-size: 28px; font-weight: 900; min-height: 1.3em; }
+.tap { padding: 26px; font-size: 22px; font-weight: 900; background: #fff; color: #0e3b33; }
+.tap.flash, .play.flash .tap { background: #4cd964; }
+.link { background: transparent; text-decoration: underline; color: #ddd; }

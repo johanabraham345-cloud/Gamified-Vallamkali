@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Vallam Kali – Row</title>
+</head>
+<body class="play">
+  <!-- 1. Join screen -->
+  <section id="screenJoin" class="screen">
+    <h1>Vallam Kali</h1>
+    <input id="nameInput" maxlength="12" placeholder="Your name" autocomplete="off" />
+    <button id="publicBtn" class="big">Join public race</button>
+    <div class="or">or</div>
+    <input id="codeInput" maxlength="4" placeholder="Room code" autocomplete="off" />
+    <button id="privateBtn" class="big alt">Join private room</button>
+    <p id="joinError" class="error"></p>
+  </section>
+
+  <!-- 2. Searching for a public room -->
+  <section id="screenSearch" class="screen hidden">
+    <h2>Looking for a race…</h2>
+    <p id="searchInfo">Searching public rooms</p>
+    <button id="cancelSearch">Cancel</button>
+  </section>
+
+  <!-- 3. In a room (lobby, countdown, race, results) -->
+  <section id="screenRoom" class="screen hidden">
+    <div id="seatInfo" class="seat">Waiting for seat…</div>
+    <div id="phaseInfo" class="phase">In the lobby</div>
+
+    <div id="beat" class="beat"><div id="beatDot"></div></div>
+    <div id="feedback" class="feedback"></div>
+
+    <button id="motionBtn" class="big">Enable rowing motion</button>
+    <button id="tapBtn" class="tap">TAP TO ROW</button>
+    <div id="debug" class="small"></div>
+    <button id="leaveBtn" class="link">Leave room</button>
+  </section>
+
+  <script type="module" src="/src/play.js"></script>
+</body>
+</html>
