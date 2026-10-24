@@ -111,7 +111,7 @@ export function createRaceScene(container) {
     scene.add(l);
   };
   line(0, 0xffeb3b);
-  for (let d = 50; d < RACE_LENGTH; d += 50) addLabel(`${d} m`, 'marker-label', d, 1, -RIVER_HALF - 2);
+  for (let d = 100; d < RACE_LENGTH; d += 100) addLabel(`${d} m`, 'marker-label', d, 1, -RIVER_HALF - 2);
   line(RACE_LENGTH, 0xffffff);
   for (const s of [-1, 1]) {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 8), new THREE.MeshStandardMaterial({ color: 0xc62828 }));
@@ -189,7 +189,13 @@ export function createRaceScene(container) {
   }
 
   function update(game, now, dt) {
-    game.boats.forEach((b, i) => { boats[i].group.position.x = b.x; });
+    game.boats.forEach((b, i) => {
+      const g = boats[i].group;
+      g.position.x = b.x;
+      g.position.z = BOAT_Z[i] + b.z;   // sideways drift
+      g.rotation.y = b.yaw;             // turning
+      g.rotation.x = b.roll;            // leaning
+    });
 
     for (const [id, v] of rowerViews) {
       const p = game.players.get(id);
