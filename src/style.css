@@ -34,13 +34,51 @@ input { font: inherit; padding: 12px; border-radius: 10px; border: 1px solid #aa
 .hud-team.red span { color: #ff6b5e; } .hud-team.blue span { color: #6ea2ff; }
 .bar { width: 160px; height: 8px; background: #333; border-radius: 4px; margin-top: 6px; overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: #4cd964; transition: width 0.2s; }
-#bigText { position: fixed; inset: 0; display: grid; place-items: center; font-size: 120px; font-weight: 900;
-  text-shadow: 0 4px 20px #000; pointer-events: none; z-index: 6; }
+#bigText { position: fixed; inset: 0; display: grid; place-items: center; font-size: 160px; font-weight: 900;
+  font-family: 'Anton', Impact, system-ui, sans-serif; letter-spacing: 4px;
+  text-shadow: 0 6px 30px rgba(0,0,0,0.8); pointer-events: none; z-index: 6; }
+#bigText.pop { animation: pop 0.5s cubic-bezier(.2,1.6,.4,1); }
+@keyframes pop { from { transform: scale(2.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* Cinematic extras */
+#vignette { position: fixed; inset: 0; pointer-events: none; z-index: 2;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45) 100%); }
+#panel { transition: opacity 0.6s, transform 0.6s; }
+body.racing #panel { opacity: 0; transform: translateX(-110%); pointer-events: none; }
+body.racing.show-panel #panel { opacity: 1; transform: none; pointer-events: auto; }
+#miniCode { position: fixed; left: 12px; bottom: 12px; z-index: 5; font-size: 13px; padding: 4px 10px;
+  border-radius: 8px; background: rgba(0,0,0,0.55); display: none; }
+body.racing #miniCode { display: block; }
+body.racing #hud { left: 12px; }
+#hud { transition: left 0.6s; }
+.hud-team span, .hud-mid, #gap { font-family: 'Anton', Impact, system-ui, sans-serif; letter-spacing: 1px; }
+.hud-team b { font-size: 22px; }
+.hud-mid { text-align: center; }
+#gap { font-size: 18px; margin-top: 2px; text-shadow: 0 1px 4px #000; }
+#track { position: fixed; left: 50%; bottom: 22px; width: min(60vw, 720px); height: 26px; transform: translateX(-50%);
+  z-index: 4; pointer-events: none; }
+.track-line { position: absolute; left: 0; right: 0; top: 11px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.55); }
+.track-finish { position: absolute; right: -14px; top: -2px; font-size: 20px; }
+.mark { position: absolute; top: 3px; width: 34px; height: 20px; margin-left: -17px; border-radius: 10px 4px 4px 10px;
+  border: 2px solid #fff; transition: left 0.15s linear; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+.mark.red { background: #d63a2f; } .mark.blue { background: #2f6fd6; top: 3px; opacity: 0.92; }
+#title, #subtitle, #banner { position: fixed; left: 0; right: 0; text-align: center; pointer-events: none; z-index: 6;
+  font-family: 'Anton', Impact, system-ui, sans-serif; color: #fff; text-shadow: 0 4px 24px rgba(0,0,0,0.85); }
+#title { top: 30%; font-size: 110px; letter-spacing: 10px; }
+#subtitle { top: calc(30% + 130px); font-size: 36px; letter-spacing: 8px; }
+#title:not(:empty), #subtitle:not(:empty) { animation: fadeUp 1.2s ease-out; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(30px); letter-spacing: 30px; } }
+#banner { top: 90px; font-size: 54px; letter-spacing: 6px; color: #ffd54f; }
+#banner:not(:empty) { animation: pulse 0.6s ease-in-out infinite alternate; }
+@keyframes pulse { to { transform: scale(1.08); color: #ff7043; } }
 .rower-label { font-size: 11px; padding: 1px 5px; border-radius: 6px; background: rgba(0,0,0,0.65); color: #fff;
   border: 2px solid #888; white-space: nowrap; }
 .rower-label.good { border-color: #4cd964; } .rower-label.ok { border-color: #ffcc00; } .rower-label.bad { border-color: #ff3b30; }
 .marker-label { font-size: 12px; color: #fff; text-shadow: 0 1px 3px #000; }
 .finish-label { font-size: 18px; font-weight: 800; color: #fff; background: #c62828; padding: 2px 8px; border-radius: 6px; }
+.sync-label { font-family: 'Anton', Impact, system-ui, sans-serif; font-size: 30px; letter-spacing: 2px; color: #fff;
+  background: linear-gradient(90deg, #2e7d32, #66bb6a); padding: 2px 14px; border-radius: 8px;
+  box-shadow: 0 0 24px rgba(102,187,106,0.9); }
 
 /* Phone */
 .play { background: #0e3b33; color: #fff; }
