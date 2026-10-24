@@ -7,9 +7,12 @@ import {
   MAX_PER_TEAM, RACE_LENGTH, TEAMS, TEMPO, COUNTDOWN_MS, PERFECT_MS, MAX_ERR_MS,
   SYNC_SPREAD_MS, NET_GRACE_MS, DRAG, STROKE_IMPULSE, OFFBEAT_MIN, EXTRA_STROKE,
   SYNC_WINDOW_MS, SURGE_SPEED, SURGE_MS, SURGE_GAP,
-  TURN_POWER, YAW_SPRING, YAW_DAMP, MAX_YAW, ROLL_POWER, ROLL_SPRING, ROLL_DAMP, MAX_ROLL, LANE_DRIFT,
+  TURN_POWER, YAW_SPRING, YAW_DAMP, MAX_YAW, ROLL_POWER, ROLL_SPRING, ROLL_DAMP, MAX_ROLL,
+  RIVER_HALF, LANE_Z, BOAT_HALF_LEN, BOAT_HALF_WIDTH, MID_GAP, BANK_GAP, LANE_CENTERING,
+  SLOWMO_MS, SLOWMO_SCALE,
 } from './config.js';
 import { createRaceScene } from './scene.js';
+import * as audio from './audio.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -45,6 +48,7 @@ const game = {
   beatBase: 0,
   startAt: 0,
   winner: null,
+  finishAt: 0,             // when the winner crossed (drives slow motion + finish camera)
 };
 
 window.vk = game; // debug: type `vk` in the browser console to inspect the live game
@@ -178,12 +182,34 @@ function driveBots(now) {
 }
 
 // ---------- Physics ----------
-function step(dt) {
-  const now = localNow();
-  if (game.phase === 'countdown' && now >= game.startAt) game.phase = 'race';
-  if (game.phase !== 'race') return;
+// Keep a boat inside its own lane. Uses the real hull outline: a turned boat sticks out sideways
+// (bow and stern swing out), so the check is on the hull's widest point, not just its centre.
+function keepInLane(boat, team, now) {
+  const toMid = team === 0 ? 1 : -1;                    // which way the middle line is
+  const ext = BOAT_HALF_LEN * Math.abs(Math.sin(boat.yaw)) + BOAT_HALF_WIDTH * Math.cos(boat.yaw);
+  const distMid = -toMid * (LANE_Z[team] + boat.z);     // boat centre's distance from the middle line
 
-  driveBots(now);
+  const overMid = MID_GAP - (distMid - ext);            // > 0 means the hull would touch the buoys
+  const overBank = (distMid + ext) - (RIVER_HALF - BANK_GAP);
+  if (overMid > 0 || overBank > 0) {
+    boat.z += overMid > 0 ? -toMid * overMid : toMid * overBank;   // push back into the lane
+    boat.yawVel = -boat.yawVel * 0.3;                   // glance off the buoy line / bank
+    boat.yaw *= 0.92;                                   // and straighten up a little
+    boat.v *= 0.985;                                    // scraping costs a bit of speed
+    boat.bumpAt = now;
+  }
+}
+
+function step(dtReal) {
+  const now = localNow();
+  if (game.phase === 'countdown' && now >= game.startAt) { game.phase = 'race'; audio.horn(); }
+  if (game.phase !== 'race' && game.phase !== 'finished') return;
+
+  // Slow motion just after the finish.
+  const slow = game.phase === 'finished' && now - game.finishAt < SLOWMO_MS;
+  const dt = dtReal * (slow ? SLOWMO_SCALE : 1);
+
+  if (game.phase === 'race') driveBots(now);
 
   game.boats.forEach((boat, team) => {
     const size = Math.max(1, teamPlayers(team).length);
@@ -210,18 +236,18 @@ function step(dt) {
     const speed = boat.v + (now < boat.surgeUntil ? boat.surgePower : 0);
     boat.x += Math.cos(boat.yaw) * speed * dt;
     boat.z += -Math.sin(boat.yaw) * speed * dt;
-    if (Math.abs(boat.z) > LANE_DRIFT) {      // bumped the lane edge
-      boat.z = Math.sign(boat.z) * LANE_DRIFT;
-      boat.yawVel *= 0.5;
-      boat.v *= 0.98;
-    }
+    boat.z -= boat.z * LANE_CENTERING * dt;   // small, steady pull back to the lane centre
+    keepInLane(boat, team, now);
+
     if (boat.x >= RACE_LENGTH && game.winner === null) {
-      boat.x = RACE_LENGTH;
       game.winner = team;
+      game.finishAt = now;
       game.phase = 'finished';
+      audio.roar();
       updateLobbyPresence();
     }
   });
+  if (game.phase === 'finished') return;     // after the finish, boats just glide to a stop
 
   const lead = Math.max(...game.boats.map((b) => b.x)) / RACE_LENGTH;
   let bpm = TEMPO[0].bpm;
@@ -231,6 +257,7 @@ function step(dt) {
 
 // Debug: in the browser console, `vkStroke('bot-1')` makes that player stroke right now.
 window.vkStroke = (id, t) => handleStroke(id, t ?? localNow());
+window.vkStep = step; // debug: run the physics by hand, e.g. vkStep(0.016)
 
 // ---------- Controls ----------
 function startRace() {
@@ -242,7 +269,9 @@ function startRace() {
   game.anchor = game.startAt; // first beat lands exactly on "GO"
   game.beatBase = 0;
   game.winner = null;
+  game.finishAt = 0;
   game.phase = 'countdown';
+  audio.init();
   updateLobbyPresence();
 }
 
@@ -262,6 +291,15 @@ $('clearBotsBtn').onclick = () => {
   rosterChanged();
 };
 $('publicToggle').onchange = (e) => { game.isPublic = e.target.checked; updateLobbyPresence(); };
+
+// Sound: browsers only allow audio after a click, so start it on the first click anywhere.
+window.addEventListener('pointerdown', () => audio.init(), { once: true });
+const updateMuteLabel = () => { $('muteBtn').textContent = audio.isMuted() ? '🔇 Sound off' : '🔊 Sound on'; };
+$('muteBtn').onclick = () => { audio.init(); audio.toggleMute(); updateMuteLabel(); };
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'm' || e.key === 'M') { audio.toggleMute(); updateMuteLabel(); }
+  if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('show-panel'); // show panel during a race
+});
 
 // ---------- Networking ----------
 // The lobby channel is the "server list": every host advertises its room there.
@@ -349,25 +387,70 @@ function frame(t) {
 }
 requestAnimationFrame(frame);
 
+const setText = (id, text) => { const el = $(id); if (el.textContent !== text) el.textContent = text; };
+let lastBeatPlayed = null;
+const lastSyncSeen = [0, 0];
+
 function drawHud() {
+  const now = localNow();
+  const racing = game.phase === 'countdown' || game.phase === 'race';
+  document.body.classList.toggle('racing', racing || game.phase === 'finished');
+
   game.boats.forEach((b, i) => {
-    $(`dist${i}`).textContent = `${Math.floor(b.x)} m`;
+    setText(`dist${i}`, `${Math.floor(Math.min(b.x, RACE_LENGTH))} m`);
     $(`rhythm${i}`).style.width = `${Math.round(clamp(b.rhythm, 0, 1) * 100)}%`;
+    $(`mark${i}`).style.left = `${clamp(b.x / RACE_LENGTH, 0, 1) * 100}%`;
   });
-  $('bpm').textContent = `${game.bpm} BPM`;
+  setText('bpm', `${game.bpm} BPM`);
+  setText('miniCode', `Room ${code}`);
+
+  // Who's leading, and by how much.
+  const [r, bl] = game.boats;
+  const gap = Math.abs(r.x - bl.x);
+  const leadProg = Math.max(r.x, bl.x) / RACE_LENGTH;
+  if (game.phase === 'race' && gap > 0.5) {
+    const leader = r.x > bl.x ? 0 : 1;
+    setText('gap', `${TEAMS[leader].name.toUpperCase()} LEADS BY ${gap.toFixed(1)} m`);
+    $('gap').style.color = TEAMS[leader].css;
+  } else setText('gap', game.phase === 'race' ? 'NECK AND NECK!' : '');
+
+  const finalSprint = game.phase === 'race' && leadProg > 0.85;
+  setText('banner', finalSprint ? 'FINAL SPRINT' : '');
+  setText('title', game.phase === 'countdown' && game.startAt - now > 3200 ? 'VALLAM KALI' : '');
+  setText('subtitle', game.phase === 'countdown' && game.startAt - now > 3200 ? 'RED  vs  BLUE' : '');
 
   let big = '';
   if (game.phase === 'countdown') {
-    const s = Math.ceil((game.startAt - localNow()) / 1000);
-    big = s > 0 ? String(s) : 'GO!';
-  } else if (game.phase === 'race' && localNow() - game.startAt < 800) {
+    const s = Math.ceil((game.startAt - now) / 1000);
+    big = s <= 3 ? (s > 0 ? String(s) : 'GO!') : '';
+  } else if (game.phase === 'race' && now - game.startAt < 900) {
     big = 'GO!';
   } else if (game.phase === 'finished' && game.winner != null) {
     big = `${TEAMS[game.winner].name} wins!`;
-  } else if (game.phase === 'lobby') {
-    big = '';
   }
   const el = $('bigText');
-  if (el.textContent !== big) el.textContent = big;
-  el.style.fontSize = big.length > 4 ? '72px' : '120px';
+  if (el.textContent !== big) {
+    el.textContent = big;
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); // replay pop animation
+  }
+  el.style.fontSize = big.length > 4 ? '96px' : '160px';
+  el.style.color = game.phase === 'finished' && game.winner != null ? TEAMS[game.winner].css : '#fff';
+
+  // ---- Sound ----
+  if (racing) {
+    const iv = 60000 / game.bpm;
+    const beat = Math.floor((now - game.anchor) / iv) + game.beatBase;
+    if (lastBeatPlayed !== null && beat !== lastBeatPlayed) audio.drum(((beat % 4) + 4) % 4 === 0);
+    lastBeatPlayed = beat;
+  } else lastBeatPlayed = null;
+  game.boats.forEach((b, i) => {
+    if (b.syncFlashAt && b.syncFlashAt !== lastSyncSeen[i]) { lastSyncSeen[i] = b.syncFlashAt; audio.whoosh(); }
+  });
+  const closeness = 1 - clamp(gap / 25, 0, 1);
+  audio.setCrowd(
+    game.phase === 'lobby' ? 0.12
+      : game.phase === 'countdown' ? 0.25
+      : game.phase === 'race' ? 0.3 + 0.35 * closeness + (finalSprint ? 0.35 : 0)
+      : 0.45
+  );
 }
