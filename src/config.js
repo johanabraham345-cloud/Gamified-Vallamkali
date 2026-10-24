@@ -38,14 +38,14 @@ export const SURGE_GAP = 0.6;        // at most one surge per 0.6 of a beat (sto
 // ---- Steering / tilt: uneven rowing turns and tilts the boat ----
 // Left-side strokes turn the boat right and vice versa, like a real boat.
 // If one side rows harder or more on the beat, the boat yaws toward the weaker side.
-export const TURN_POWER = 0.6;       // turn speed added per full stroke (rad/s)   (was 0.25)
-export const YAW_SPRING = 0.8;       // keel straightens the boat back            (was 1.5, lower = drifts longer)
-export const YAW_DAMP = 1.4;
-export const MAX_YAW = 0.55;         // ~30 degrees                                (was ~20)
-export const ROLL_POWER = 0.5;       // sideways lean per stroke (visual)
-export const ROLL_SPRING = 10;
-export const ROLL_DAMP = 4;
-export const MAX_ROLL = 0.35;
+export const TURN_POWER = 0.9;       // turn speed added per full stroke (rad/s)
+export const YAW_SPRING = 0.6;       // keel straightens the boat back (lower = stays turned longer)
+export const YAW_DAMP = 1.2;
+export const MAX_YAW = 0.75;         // ~43 degrees max turn
+export const ROLL_POWER = 0.8;       // sideways lean per stroke (visual)
+export const ROLL_SPRING = 9;
+export const ROLL_DAMP = 3.5;
+export const MAX_ROLL = 0.5;         // ~29 degrees max lean
 export const LANE_DRIFT = 5.5;       // how far a boat can wander sideways out of its lane line (m)
 
 // Rhythm bar on the HUD: how spread out strokes can be before the bar reads 0.
@@ -55,9 +55,6 @@ export const SYNC_SPREAD_MS = 200;
 export const NET_GRACE_MS = 250;
 
 // Stroke detection on the phone.
-export const STROKE_COOLDOWN_MS = 350;      // minimum gap between strokes (taps use this)
-export const MOTION_COOLDOWN_BEAT = 0.5;    // motion: ignore new strokes for half a beat, so the
-                                            // return swing of the arm isn't counted as a 2nd stroke
-export const START_THRESHOLD = 7;           // m/s^2 before the phone has learned your stroke
-export const MIN_THRESHOLD = 3;
-export const MAX_THRESHOLD = 20;
+export const STROKE_COOLDOWN_MS = 350;      // minimum gap between two strokes (taps and motion)
+export const STROKE_THRESHOLD = 5;          // motion above this = one stroke
+export const REARM_LEVEL = 4;               // motion must drop below this before the next stroke can count
