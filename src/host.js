@@ -5,7 +5,9 @@ import QRCode from 'qrcode';
 import { supabase, configOk, showConfigError, localNow, LOBBY_CHANNEL, roomChannelName } from './net.js';
 import {
   MAX_PER_TEAM, RACE_LENGTH, TEAMS, TEMPO, COUNTDOWN_MS, PERFECT_MS, MAX_ERR_MS,
-  SYNC_SPREAD_MS, NET_GRACE_MS, STROKE_POWER, DRAG,
+  SYNC_SPREAD_MS, NET_GRACE_MS, DRAG, STROKE_IMPULSE, OFFBEAT_MIN, EXTRA_STROKE,
+  SYNC_WINDOW_MS, SYNC_MIN_QUALITY, SURGE_SPEED, SURGE_MS,
+  TURN_POWER, YAW_SPRING, YAW_DAMP, MAX_YAW, ROLL_POWER, ROLL_SPRING, ROLL_DAMP, MAX_ROLL, LANE_DRIFT,
 } from './config.js';
 import { createRaceScene } from './scene.js';
 
@@ -27,7 +29,12 @@ QRCode.toCanvas($('qr'), joinUrl, { width: 160, margin: 1 });
 const scene = createRaceScene($('stage'));
 
 // ---------- Game state ----------
-const newBoat = () => ({ x: 0, v: 0, rhythm: 0, log: new Map() });
+// x = distance down the course, z = sideways drift from lane centre,
+// yaw = heading (turn), roll = sideways lean, surgeUntil = sync bonus end time.
+const newBoat = () => ({
+  x: 0, v: 0, z: 0, yaw: 0, yawVel: 0, roll: 0, rollVel: 0,
+  surgeUntil: 0, rhythm: 0, log: new Map(),
+});
 const game = {
   phase: 'lobby',          // lobby | countdown | race | finished
   isPublic: true,
@@ -39,6 +46,8 @@ const game = {
   startAt: 0,
   winner: null,
 };
+
+window.vk = game; // debug: type `vk` in the browser console to inspect the live game
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const teamPlayers = (team) => [...game.players.values()].filter((p) => p.team === team);
@@ -101,18 +110,40 @@ function handleStroke(id, t) {
   const p = game.players.get(id);
   if (!p || p.team == null) return;
 
+  const boat = game.boats[p.team];
+  const size = Math.max(1, teamPlayers(p.team).length);
+  const side = p.seat % 2 === 0 ? -1 : 1; // -1 = left side of the boat, +1 = right
   const b = nearestBeat(t);
-  if (p.lastBeat === b.idx) return; // one stroke per beat
-  p.lastBeat = b.idx;
-
-  const err = Math.abs(t - b.time);
-  p.q = err <= PERFECT_MS ? 1 : clamp(1 - (err - PERFECT_MS) / (MAX_ERR_MS - PERFECT_MS), 0, 1);
   p.strokeAt = localNow();
 
-  const log = game.boats[p.team].log;
-  let entry = log.get(b.idx);
-  if (!entry) { entry = { closeAt: b.time + b.iv / 2 + NET_GRACE_MS, strokes: [] }; log.set(b.idx, entry); }
-  entry.strokes.push({ t, q: p.q });
+  // How strong this stroke is: on-beat = 1, off-beat still pushes a bit,
+  // a 2nd stroke in the same beat barely counts.
+  let strength;
+  const firstThisBeat = p.lastBeat !== b.idx;
+  if (firstThisBeat) {
+    p.lastBeat = b.idx;
+    const err = Math.abs(t - b.time);
+    p.q = err <= PERFECT_MS ? 1 : clamp(1 - (err - PERFECT_MS) / (MAX_ERR_MS - PERFECT_MS), 0, 1);
+    strength = OFFBEAT_MIN + (1 - OFFBEAT_MIN) * p.q;
+  } else {
+    strength = EXTRA_STROKE;
+  }
+
+  // 1) Every stroke moves the boat forward right away.
+  boat.v += (STROKE_IMPULSE * strength) / size;
+
+  // 2) Each stroke also turns and leans the boat. Left strokes turn it right, right strokes
+  //    turn it left. Balanced, in-time rowing cancels out; uneven rowing makes it tilt and veer.
+  const sideShare = Math.max(1, size / 2);
+  boat.yawVel += (side * TURN_POWER * strength) / sideShare;
+  boat.rollVel += (side * ROLL_POWER * strength) / sideShare;
+
+  // 3) Remember on-beat strokes so we can judge team sync when the beat closes.
+  if (firstThisBeat) {
+    let entry = boat.log.get(b.idx);
+    if (!entry) { entry = { closeAt: b.time + b.iv / 2 + NET_GRACE_MS, strokes: [] }; boat.log.set(b.idx, entry); }
+    entry.strokes.push({ t, q: p.q });
+  }
 }
 
 function stdev(xs) {
@@ -142,21 +173,40 @@ function step(dt) {
 
   game.boats.forEach((boat, team) => {
     const size = Math.max(1, teamPlayers(team).length);
+
+    // Judge each finished beat: did the whole team stroke together?
     for (const [idx, e] of boat.log) {
       if (e.closeAt > now) continue;
-      // Power = how many rowers hit the beat, and how well (missing rowers count as 0).
-      const power = e.strokes.reduce((s, x) => s + x.q, 0) / size;
-      // Sync = how tightly the strokes cluster together in time.
-      const sync = e.strokes.length > 1
-        ? clamp(1 - stdev(e.strokes.map((s) => s.t)) / SYNC_SPREAD_MS, 0, 1)
-        : (size === 1 ? 1 : 0.3);
-      const boost = STROKE_POWER * power * (0.4 + 0.6 * sync);
-      boat.v += boost;
-      boat.rhythm = boat.rhythm * 0.5 + (boost / STROKE_POWER) * 0.5;
+      const times = e.strokes.map((s) => s.t);
+      const avgQ = e.strokes.reduce((s, x) => s + x.q, 0) / size; // missing rowers count as 0
+      const spread = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
+      const allRowed = e.strokes.length >= size;
+      if (allRowed && spread <= SYNC_WINDOW_MS && avgQ >= SYNC_MIN_QUALITY) {
+        boat.surgeUntil = now + SURGE_MS; // SYNC! short burst of speed
+      }
+      // HUD rhythm bar
+      const sync = times.length > 1 ? clamp(1 - stdev(times) / SYNC_SPREAD_MS, 0, 1) : (size === 1 ? 1 : 0.3);
+      boat.rhythm = boat.rhythm * 0.5 + avgQ * sync * 0.5;
       boat.log.delete(idx);
     }
+
+    // Turning: springs back straight over time (the keel), limited to MAX_YAW.
+    boat.yawVel += (-YAW_SPRING * boat.yaw - YAW_DAMP * boat.yawVel) * dt;
+    boat.yaw = clamp(boat.yaw + boat.yawVel * dt, -MAX_YAW, MAX_YAW);
+    // Leaning: quick wobble that settles.
+    boat.rollVel += (-ROLL_SPRING * boat.roll - ROLL_DAMP * boat.rollVel) * dt;
+    boat.roll = clamp(boat.roll + boat.rollVel * dt, -MAX_ROLL, MAX_ROLL);
+
+    // Move along the heading. Veering costs forward speed and drifts the boat sideways.
     boat.v *= Math.exp(-DRAG * dt);
-    boat.x += boat.v * dt;
+    const speed = boat.v + (now < boat.surgeUntil ? SURGE_SPEED : 0);
+    boat.x += Math.cos(boat.yaw) * speed * dt;
+    boat.z += -Math.sin(boat.yaw) * speed * dt;
+    if (Math.abs(boat.z) > LANE_DRIFT) {      // bumped the lane edge
+      boat.z = Math.sign(boat.z) * LANE_DRIFT;
+      boat.yawVel *= 0.5;
+      boat.v *= 0.98;
+    }
     if (boat.x >= RACE_LENGTH && game.winner === null) {
       boat.x = RACE_LENGTH;
       game.winner = team;
