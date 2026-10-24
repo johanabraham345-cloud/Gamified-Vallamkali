@@ -15,7 +15,16 @@ export const TEMPO = [
   { at: 0.75, bpm: 80 },
 ];
 
-export const COUNTDOWN_MS = 4000;    // 3..2..1..GO
+export const COUNTDOWN_MS = 7000;    // cinematic intro fly-past, then 3..2..1..GO
+
+// ---- River & lanes (shared by physics and graphics) ----
+export const RIVER_HALF = 18;        // river is 36 m wide
+export const LANE_Z = [-7, 7];       // Red lane centre, Blue lane centre (middle buoy line is z = 0)
+export const BOAT_HALF_LEN = 17;     // boat is 34 m long
+export const BOAT_HALF_WIDTH = 1.75;
+export const MID_GAP = 0.8;          // closest a hull may get to the middle buoy line (m)
+export const BANK_GAP = 1.0;         // closest a hull may get to the riverbank (m)
+export const LANE_CENTERING = 0.15;  // gentle pull back toward your own lane centre (per second)
 
 // Stroke timing: within PERFECT_MS of the beat = full quality, fades to 0 at MAX_ERR_MS.
 export const PERFECT_MS = 90;
@@ -41,12 +50,18 @@ export const SURGE_GAP = 0.6;        // at most one surge per 0.6 of a beat (sto
 export const TURN_POWER = 0.9;       // turn speed added per full stroke (rad/s)
 export const YAW_SPRING = 0.6;       // keel straightens the boat back (lower = stays turned longer)
 export const YAW_DAMP = 1.2;
-export const MAX_YAW = 0.75;         // ~43 degrees max turn
+// A 34 m boat turned 43° sticks out 25 m sideways, wider than its half of the river, so it would
+// cross the middle line. ~21° is the most a boat can turn and still fit in its own lane.
+export const MAX_YAW = 0.36;
 export const ROLL_POWER = 0.8;       // sideways lean per stroke (visual)
 export const ROLL_SPRING = 9;
 export const ROLL_DAMP = 3.5;
 export const MAX_ROLL = 0.5;         // ~29 degrees max lean
-export const LANE_DRIFT = 5.5;       // how far a boat can wander sideways out of its lane line (m)
+
+// ---- Cinematics ----
+export const CINEMATIC_CUTS = true;  // TV-style camera cuts during the race (alongside, head-on, overhead)
+export const SLOWMO_MS = 2500;       // slow motion right after the winner crosses the line
+export const SLOWMO_SCALE = 0.3;
 
 // Rhythm bar on the HUD: how spread out strokes can be before the bar reads 0.
 export const SYNC_SPREAD_MS = 200;
