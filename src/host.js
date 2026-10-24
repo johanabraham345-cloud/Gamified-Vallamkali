@@ -6,7 +6,7 @@ import { supabase, configOk, showConfigError, localNow, LOBBY_CHANNEL, roomChann
 import {
   MAX_PER_TEAM, RACE_LENGTH, TEAMS, TEMPO, COUNTDOWN_MS, PERFECT_MS, MAX_ERR_MS,
   SYNC_SPREAD_MS, NET_GRACE_MS, DRAG, STROKE_IMPULSE, OFFBEAT_MIN, EXTRA_STROKE,
-  SYNC_WINDOW_MS, SYNC_MIN_QUALITY, SURGE_SPEED, SURGE_MS,
+  SYNC_WINDOW_MS, SURGE_SPEED, SURGE_MS, SURGE_GAP,
   TURN_POWER, YAW_SPRING, YAW_DAMP, MAX_YAW, ROLL_POWER, ROLL_SPRING, ROLL_DAMP, MAX_ROLL, LANE_DRIFT,
 } from './config.js';
 import { createRaceScene } from './scene.js';
@@ -33,7 +33,7 @@ const scene = createRaceScene($('stage'));
 // yaw = heading (turn), roll = sideways lean, surgeUntil = sync bonus end time.
 const newBoat = () => ({
   x: 0, v: 0, z: 0, yaw: 0, yawVel: 0, roll: 0, rollVel: 0,
-  surgeUntil: 0, rhythm: 0, log: new Map(),
+  surgeUntil: 0, surgePower: 0, lastSyncT: -1e15, syncFlashAt: 0, rhythm: 0, log: new Map(),
 });
 const game = {
   phase: 'lobby',          // lobby | countdown | race | finished
@@ -138,7 +138,21 @@ function handleStroke(id, t) {
   boat.yawVel += (side * TURN_POWER * strength) / sideShare;
   boat.rollVel += (side * ROLL_POWER * strength) / sideShare;
 
-  // 3) Remember on-beat strokes so we can judge team sync when the beat closes.
+  // 3) SYNC check, instantly: did every teammate stroke within SYNC_WINDOW_MS of this stroke?
+  p.lastStrokeT = t;
+  const mates = teamPlayers(p.team);
+  if (mates.length >= 2 && t - boat.lastSyncT > SURGE_GAP * b.iv) {
+    const together = mates.every((m) => m.lastStrokeT != null && Math.abs(t - m.lastStrokeT) <= SYNC_WINDOW_MS);
+    if (together) {
+      const avgQ = mates.reduce((s, m) => s + (m.q || 0), 0) / mates.length;
+      boat.surgePower = SURGE_SPEED * (0.6 + 0.4 * avgQ); // together = boost, together AND on-beat = bigger boost
+      boat.surgeUntil = localNow() + SURGE_MS;
+      boat.lastSyncT = t;
+      boat.syncFlashAt = localNow();
+    }
+  }
+
+  // 4) Remember on-beat strokes for the HUD rhythm bar.
   if (firstThisBeat) {
     let entry = boat.log.get(b.idx);
     if (!entry) { entry = { closeAt: b.time + b.iv / 2 + NET_GRACE_MS, strokes: [] }; boat.log.set(b.idx, entry); }
@@ -174,17 +188,11 @@ function step(dt) {
   game.boats.forEach((boat, team) => {
     const size = Math.max(1, teamPlayers(team).length);
 
-    // Judge each finished beat: did the whole team stroke together?
+    // Update the HUD rhythm bar once each beat is over.
     for (const [idx, e] of boat.log) {
       if (e.closeAt > now) continue;
       const times = e.strokes.map((s) => s.t);
       const avgQ = e.strokes.reduce((s, x) => s + x.q, 0) / size; // missing rowers count as 0
-      const spread = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
-      const allRowed = e.strokes.length >= size;
-      if (allRowed && spread <= SYNC_WINDOW_MS && avgQ >= SYNC_MIN_QUALITY) {
-        boat.surgeUntil = now + SURGE_MS; // SYNC! short burst of speed
-      }
-      // HUD rhythm bar
       const sync = times.length > 1 ? clamp(1 - stdev(times) / SYNC_SPREAD_MS, 0, 1) : (size === 1 ? 1 : 0.3);
       boat.rhythm = boat.rhythm * 0.5 + avgQ * sync * 0.5;
       boat.log.delete(idx);
@@ -199,7 +207,7 @@ function step(dt) {
 
     // Move along the heading. Veering costs forward speed and drifts the boat sideways.
     boat.v *= Math.exp(-DRAG * dt);
-    const speed = boat.v + (now < boat.surgeUntil ? SURGE_SPEED : 0);
+    const speed = boat.v + (now < boat.surgeUntil ? boat.surgePower : 0);
     boat.x += Math.cos(boat.yaw) * speed * dt;
     boat.z += -Math.sin(boat.yaw) * speed * dt;
     if (Math.abs(boat.z) > LANE_DRIFT) {      // bumped the lane edge
@@ -221,11 +229,14 @@ function step(dt) {
   setTempo(bpm);
 }
 
+// Debug: in the browser console, `vkStroke('bot-1')` makes that player stroke right now.
+window.vkStroke = (id, t) => handleStroke(id, t ?? localNow());
+
 // ---------- Controls ----------
 function startRace() {
   if (game.phase === 'countdown' || game.phase === 'race') return;
   game.boats = [newBoat(), newBoat()];
-  for (const p of game.players.values()) { p.q = 0; p.strokeAt = 0; p.lastBeat = -1; }
+  for (const p of game.players.values()) { p.q = 0; p.strokeAt = 0; p.lastBeat = -1; p.lastStrokeT = null; }
   game.bpm = TEMPO[0].bpm;
   game.startAt = localNow() + COUNTDOWN_MS;
   game.anchor = game.startAt; // first beat lands exactly on "GO"
