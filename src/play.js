@@ -2,7 +2,9 @@
 // from the motion sensor (or a tap button) and shows the beat.
 import './style.css';
 import { supabase, configOk, showConfigError, localNow, makeId, LOBBY_CHANNEL, roomChannelName } from './net.js';
-import { TEAMS, STROKE_COOLDOWN_MS, MIN_THRESHOLD, MAX_THRESHOLD } from './config.js';
+import {
+  TEAMS, STROKE_COOLDOWN_MS, MOTION_COOLDOWN_BEAT, START_THRESHOLD, MIN_THRESHOLD, MAX_THRESHOLD,
+} from './config.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -213,11 +215,27 @@ function stroke() {
 
 $('tapBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); stroke(); });
 
-// Motion-based stroke detection: a stroke = acceleration rising above a threshold
-// that adapts to how hard this player rows.
-let ema = 0, above = false, peak = 0, threshold = 8;
+// Motion-based stroke detection.
+// A row is a PULL and a RETURN, and both spike the sensor. So after a stroke is counted,
+// new strokes are ignored for half a beat, which swallows the return swing.
+// The trigger level learns from how hard you row, and the slider lets you adjust it by hand.
+let ema = 0, armed = true, counting = false, peak = 0, learned = START_THRESHOLD;
+let lastMotionStroke = 0, motionStrokes = 0;
 const peaks = [];
 let gravity = { x: 0, y: 0, z: 0 };
+let sensitivity = parseFloat(localStorage.getItem('vk-sens') || '1');
+const triggerLevel = () => Math.min(MAX_THRESHOLD, Math.max(MIN_THRESHOLD, learned / sensitivity));
+const motionCooldown = () => (state?.bpm
+  ? Math.max(STROKE_COOLDOWN_MS, (MOTION_COOLDOWN_BEAT * 60000) / state.bpm)
+  : STROKE_COOLDOWN_MS * 1.5);
+
+// Sensitivity slider (added by code so play.html doesn't need to change).
+const sensLabel = document.createElement('label');
+sensLabel.className = 'small';
+sensLabel.innerHTML = 'Motion sensitivity <input id="sens" type="range" min="0.5" max="2.5" step="0.1" style="width:100%">';
+$('debug').after(sensLabel);
+$('sens').value = sensitivity;
+$('sens').oninput = (e) => { sensitivity = parseFloat(e.target.value); localStorage.setItem('vk-sens', sensitivity); };
 
 function onMotion(e) {
   let ax, ay, az;
@@ -231,24 +249,32 @@ function onMotion(e) {
   } else return;
 
   const mag = Math.hypot(ax, ay, az);
-  ema = ema * 0.6 + mag * 0.4;
+  ema = ema * 0.5 + mag * 0.5;
 
-  if (!above && ema > threshold) {
-    above = true;
+  const now = localNow();
+  const level = triggerLevel();
+  if (counting) peak = Math.max(peak, ema);
+
+  if (armed && ema > level && now - lastMotionStroke >= motionCooldown()) {
+    // Start of a real stroke.
+    armed = false;
+    counting = true;
     peak = ema;
+    lastMotionStroke = now;
+    motionStrokes++;
     stroke();
-  } else if (above) {
-    peak = Math.max(peak, ema);
-    if (ema < threshold * 0.6) {
-      above = false;
+  } else if (!armed && ema < level * 0.5) {
+    // Motion settled: ready for the next stroke. Learn from how hard that stroke was.
+    armed = true;
+    if (counting) {
+      counting = false;
       peaks.push(peak);
       if (peaks.length > 6) peaks.shift();
       const sorted = [...peaks].sort((a, b) => a - b);
-      const median = sorted[Math.floor(sorted.length / 2)];
-      threshold = Math.min(MAX_THRESHOLD, Math.max(MIN_THRESHOLD, median * 0.5));
+      learned = Math.min(MAX_THRESHOLD, Math.max(MIN_THRESHOLD, sorted[Math.floor(sorted.length / 2)] * 0.45));
     }
   }
-  $('debug').textContent = `motion ${ema.toFixed(1)} · threshold ${threshold.toFixed(1)}`;
+  $('debug').textContent = `motion ${ema.toFixed(1)} · triggers at ${level.toFixed(1)} · strokes ${motionStrokes}`;
 }
 
 $('motionBtn').onclick = async () => {
