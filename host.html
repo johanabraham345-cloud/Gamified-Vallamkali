@@ -4,11 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vallam Kali – Host</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet" />
 </head>
 <body class="host">
   <div id="stage"></div>
+  <div id="vignette"></div>
 
-  <!-- Left control panel -->
+  <!-- Left control panel (hides itself during the race; press H to show it) -->
   <aside id="panel">
     <h2>Vallam Kali</h2>
     <div class="code-label">Room code</div>
@@ -29,20 +32,37 @@
       <button id="botBtn">+ Test bot</button>
       <button id="clearBotsBtn">Remove bots</button>
     </div>
+    <div class="btn-row">
+      <button id="muteBtn">🔊 Sound on</button>
+    </div>
 
     <div class="teams">
       <div><h3 style="color:#d63a2f">Red</h3><ol id="team0"></ol></div>
       <div><h3 style="color:#2f6fd6">Blue</h3><ol id="team1"></ol></div>
     </div>
     <div id="status" class="small">Connecting…</div>
+    <div class="small">Keys: M = mute, H = show/hide this panel during a race</div>
   </aside>
+  <div id="miniCode"></div>
 
   <!-- Top HUD -->
   <div id="hud">
-    <div class="hud-team red"><span>Red</span> <b id="dist0">0 m</b> <div class="bar"><i id="rhythm0"></i></div></div>
-    <div class="hud-mid"><div id="bpm">56 BPM</div></div>
-    <div class="hud-team blue"><span>Blue</span> <b id="dist1">0 m</b> <div class="bar"><i id="rhythm1"></i></div></div>
+    <div class="hud-team red"><span>RED</span> <b id="dist0">0 m</b> <div class="bar"><i id="rhythm0"></i></div></div>
+    <div class="hud-mid"><div id="bpm">56 BPM</div><div id="gap"></div></div>
+    <div class="hud-team blue"><span>BLUE</span> <b id="dist1">0 m</b> <div class="bar"><i id="rhythm1"></i></div></div>
   </div>
+
+  <!-- Race progress track -->
+  <div id="track">
+    <div class="track-line"></div>
+    <div class="track-finish">🏁</div>
+    <div id="mark0" class="mark red"></div>
+    <div id="mark1" class="mark blue"></div>
+  </div>
+
+  <div id="title"></div>
+  <div id="subtitle"></div>
+  <div id="banner"></div>
   <div id="bigText"></div>
 
   <script type="module" src="/src/host.js"></script>
