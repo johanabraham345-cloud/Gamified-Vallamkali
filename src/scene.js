@@ -147,8 +147,19 @@ export function createRaceScene(container) {
 
     const rowersGroup = new THREE.Group();
     g.add(rowersGroup);
+
+    // "SYNC!" pop-up above the boat when the team strokes together.
+    const syncEl = document.createElement('div');
+    syncEl.className = 'finish-label';
+    syncEl.textContent = 'SYNC!';
+    syncEl.style.background = '#2e7d32';
+    syncEl.style.opacity = '0';
+    const syncLabel = new CSS2DObject(syncEl);
+    syncLabel.position.set(0, 6, 0);
+    g.add(syncLabel);
+
     scene.add(g);
-    return { group: g, rowersGroup };
+    return { group: g, rowersGroup, syncEl };
   });
 
   // id -> { oarPivot, side, label }
@@ -195,6 +206,8 @@ export function createRaceScene(container) {
       g.position.z = BOAT_Z[i] + b.z;   // sideways drift
       g.rotation.y = b.yaw;             // turning
       g.rotation.x = b.roll;            // leaning
+      const flash = 1 - (now - (b.syncFlashAt || 0)) / 700;
+      boats[i].syncEl.style.opacity = flash > 0 ? flash.toFixed(2) : '0';
     });
 
     for (const [id, v] of rowerViews) {
