@@ -3,7 +3,7 @@
 // Browsers only allow sound after a click, so init() is called from a click.
 
 let ctx = null;
-let master, crowdGain, crowdFilter;
+let master, fx, crowdGain, crowdFilter;   // fx = drums/crowd/horn bus (dips while the commentator talks)
 let muted = false;
 
 function noiseBuffer(seconds, brown = false) {
@@ -18,14 +18,27 @@ function noiseBuffer(seconds, brown = false) {
   return buf;
 }
 
-export function init() {
-  if (ctx) { ctx.resume(); return; }
+// Create the audio system early (it stays silent/suspended until a click), so the commentary
+// clips can download and decode while people are joining.
+export function prepare() {
+  if (ctx) return;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   ctx = new AC();
+  setup();
+}
+
+export function init() {
+  if (!ctx) prepare();
+  ctx?.resume();
+}
+
+function setup() {
   master = ctx.createGain();
   master.gain.value = muted ? 0 : 0.8;
   master.connect(ctx.destination);
+  fx = ctx.createGain();
+  fx.connect(master);
 
   // Crowd: looping brown noise through a band-pass filter = distant crowd murmur.
   const src = ctx.createBufferSource();
@@ -37,7 +50,7 @@ export function init() {
   crowdFilter.Q.value = 0.5;
   crowdGain = ctx.createGain();
   crowdGain.gain.value = 0;
-  src.connect(crowdFilter).connect(crowdGain).connect(master);
+  src.connect(crowdFilter).connect(crowdGain).connect(fx);
   src.start();
 }
 
@@ -51,7 +64,7 @@ export function drum(accent = false) {
   o.frequency.exponentialRampToValueAtTime(45, t + 0.25);
   g.gain.setValueAtTime(accent ? 1.0 : 0.65, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-  o.connect(g).connect(master);
+  o.connect(g).connect(fx);
   o.start(t);
   o.stop(t + 0.4);
 
@@ -63,7 +76,7 @@ export function drum(accent = false) {
   const ng = ctx.createGain();
   ng.gain.setValueAtTime(accent ? 0.55 : 0.3, t);
   ng.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-  n.connect(f).connect(ng).connect(master);
+  n.connect(f).connect(ng).connect(fx);
   n.start(t);
 }
 
@@ -79,7 +92,7 @@ export function horn() {
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
   lp.frequency.value = 2200;
-  lp.connect(g).connect(master);
+  lp.connect(g).connect(fx);
   for (const freq of [233, 294, 349]) {
     const o = ctx.createOscillator();
     o.type = 'sawtooth';
@@ -106,7 +119,7 @@ export function whoosh() {
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(0.5, t + 0.08);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
-  n.connect(f).connect(g).connect(master);
+  n.connect(f).connect(g).connect(fx);
   n.start(t);
 }
 
@@ -133,3 +146,11 @@ export function toggleMute() {
   if (master) master.gain.setTargetAtTime(muted ? 0 : 0.8, ctx.currentTime, 0.05);
 }
 export const isMuted = () => muted;
+
+// For the commentator (commentary.js): the audio context, where voices go, and "ducking".
+export const getContext = () => ctx;
+export const getVoiceOutput = () => master;
+export function duck(on) {
+  if (!ctx) return;
+  fx.gain.setTargetAtTime(on ? 0.35 : 1, ctx.currentTime, on ? 0.08 : 0.4);
+}
