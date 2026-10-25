@@ -24,13 +24,21 @@ if (!configOk) {
 
 // ---------- Room code ----------
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I/L confusion
-const code = Array.from({ length: 4 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
+// host.html?headless=1&code=ABCD&autostart=6 is a "background server": a phone starts one when
+// nobody else is hosting a public race. It runs the game without any 3D or sound.
+const params = new URLSearchParams(location.search);
+const HEADLESS = params.has('headless');
+const AUTOSTART = Number(params.get('autostart')) || 0;      // start when each boat has this many
+const wantedCode = (params.get('code') || '').toUpperCase();
+const code = /^[A-Z0-9]{4}$/.test(wantedCode) ? wantedCode
+  : Array.from({ length: 4 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
 const joinUrl = `${location.origin}/play.html?room=${code}`;
 $('code').textContent = code;
 $('joinUrl').textContent = joinUrl;
 QRCode.toCanvas($('qr'), joinUrl, { width: 160, margin: 1 });
 
-const scene = createRaceScene($('stage'));
+const noScene = { setRoster() {}, update() {}, render() {} };
+const scene = HEADLESS ? noScene : createRaceScene($('stage'));
 
 // ---------- Game state ----------
 // x = distance down the course, z = sideways drift from lane centre,
@@ -82,7 +90,7 @@ function rosterChanged() {
   for (const t of [0, 1]) {
     $(`team${t}`).innerHTML = teamPlayers(t)
       .sort((a, b) => a.seat - b.seat)
-      .map((p) => `<li>${escapeHtml(p.name)}${p.bot ? ' 🤖' : ''}</li>`)
+      .map((p) => `<li>${escapeHtml(p.name)}${p.bot ? ' <small>(bot)</small>' : ''}</li>`)
       .join('');
   }
   updateLobbyPresence();
@@ -272,8 +280,7 @@ function startRace() {
   game.winner = null;
   game.finishAt = 0;
   game.phase = 'countdown';
-  audio.init();
-  commentary.onRaceStart();
+  if (!HEADLESS) { audio.init(); commentary.onRaceStart(); }
   updateLobbyPresence();
 }
 
@@ -296,10 +303,12 @@ $('clearBotsBtn').onclick = () => {
 $('publicToggle').onchange = (e) => { game.isPublic = e.target.checked; updateLobbyPresence(); };
 
 // Sound: browsers only allow audio after a click, so start it on the first click anywhere.
-audio.prepare();          // silent until the first click, but lets the commentary load now
-commentary.preload();
+if (!HEADLESS) {
+  audio.prepare();        // silent until the first click, but lets the commentary load now
+  commentary.preload();
+}
 window.addEventListener('pointerdown', () => audio.init(), { once: true });
-const updateMuteLabel = () => { $('muteBtn').textContent = audio.isMuted() ? '🔇 Sound off' : '🔊 Sound on'; };
+const updateMuteLabel = () => { $('muteBtn').textContent = audio.isMuted() ? 'Sound: off' : 'Sound: on'; };
 $('muteBtn').onclick = () => { audio.init(); audio.toggleMute(); updateMuteLabel(); };
 window.addEventListener('keydown', (e) => {
   if (e.key === 'm' || e.key === 'M') { audio.toggleMute(); updateMuteLabel(); }
@@ -321,6 +330,7 @@ function updateLobbyPresence() {
     humans,
     max: MAX_PER_TEAM * 2,
     phase: game.phase,
+    auto: !!AUTOSTART,
   });
 }
 
@@ -374,6 +384,8 @@ setInterval(() => {
       winner: game.winner,
       prog: game.boats.map((b) => +(b.x / RACE_LENGTH).toFixed(3)),
       roster: [...game.players.values()].filter((p) => !p.bot).map((p) => [p.id, p.team, p.seat, +p.q.toFixed(2)]),
+      need: AUTOSTART,
+      counts: [teamPlayers(0).length, teamPlayers(1).length],
     },
   });
 }, 250);
@@ -385,12 +397,31 @@ function frame(t) {
   const dt = Math.min(0.1, (t - last) / 1000);
   last = t;
   step(dt);
-  scene.update(game, localNow(), dt);
-  scene.render();
-  drawHud();
-  requestAnimationFrame(frame);
+  if (!HEADLESS) {
+    scene.update(game, localNow(), dt);
+    scene.render();
+    drawHud();
+    requestAnimationFrame(frame);
+  }
 }
-requestAnimationFrame(frame);
+// A background server isn't drawn on screen, so it runs on a timer instead of animation frames.
+if (HEADLESS) setInterval(() => frame(performance.now()), 33);
+else requestAnimationFrame(frame);
+
+// ---------- Auto-start (public rooms) ----------
+// When both boats have AUTOSTART rowers, start after a short pause; after the race, return to the lobby.
+let fullSince = 0;
+if (AUTOSTART) setInterval(() => {
+  const now = localNow();
+  if (game.phase === 'lobby') {
+    const full = teamPlayers(0).length >= AUTOSTART && teamPlayers(1).length >= AUTOSTART;
+    if (!full) fullSince = 0;
+    else if (!fullSince) fullSince = now;
+    else if (now - fullSince > 3000) { fullSince = 0; startRace(); }
+  } else if (game.phase === 'finished' && now - game.finishAt > 15000) {
+    backToLobby();
+  }
+}, 500);
 
 const setText = (id, text) => { const el = $(id); if (el.textContent !== text) el.textContent = text; };
 let lastBeatPlayed = null;
