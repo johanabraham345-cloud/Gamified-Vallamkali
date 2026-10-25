@@ -40,6 +40,13 @@ input { font: inherit; padding: 12px; border-radius: 10px; border: 1px solid #aa
 #bigText.pop { animation: pop 0.5s cubic-bezier(.2,1.6,.4,1); }
 @keyframes pop { from { transform: scale(2.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
+/* Picture-in-picture frame for the trailing boat */
+.pip { position: absolute; display: none; border: 3px solid #fff; border-radius: 10px; pointer-events: none; z-index: 3;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.55); }
+.pip.on { display: block; }
+.pip span { position: absolute; left: 8px; top: 6px; font-family: 'Anton', Impact, system-ui, sans-serif; font-size: 16px;
+  letter-spacing: 1px; color: #fff; text-shadow: 0 1px 4px #000; background: rgba(0,0,0,0.45); padding: 1px 8px; border-radius: 6px; }
+
 /* Cinematic extras */
 #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 2;
   background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45) 100%); }
