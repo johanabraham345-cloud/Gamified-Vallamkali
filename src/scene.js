@@ -406,8 +406,16 @@ export function createRaceScene(container) {
   scene.add(placeholderPalms);
 
   // Crowd: placeholder people in tiers along the banks, some under umbrellas (real model later).
-  const bodies = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.27, 0.8, 3, 8), new THREE.MeshStandardMaterial({ roughness: 0.9 }), CROWD_COUNT);
-  const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 8, 6), new THREE.MeshStandardMaterial({ color: 0x5e4030, roughness: 0.8 }), CROWD_COUNT);
+  // Each spectator: white/cream mundu (lower body), coloured shirt, skin-tone head, black hair.
+  const mundus = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.2, 0.26, 0.85, 10).translate(0, -0.42, 0),
+    new THREE.MeshStandardMaterial({ roughness: 0.9 }), CROWD_COUNT);
+  const bodies = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.2, 0.62, 10).translate(0, -0.05, 0),
+    new THREE.MeshStandardMaterial({ roughness: 0.85 }), CROWD_COUNT);
+  const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.15, 12, 10).scale(1, 1.12, 1),
+    new THREE.MeshStandardMaterial({ color: 0x7a5038, roughness: 0.7 }), CROWD_COUNT);
+  const hair = new THREE.InstancedMesh(new THREE.SphereGeometry(0.155, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55).translate(0, 0.03, 0),
+    new THREE.MeshStandardMaterial({ color: 0x141010, roughness: 0.9 }), CROWD_COUNT);
+  const mundu = [0xf5f0e1, 0xffffff, 0xf3e7c9, 0xf5f0e1, 0x2c2c2c];
   const shirt = [0xffffff, 0xf3b33d, 0xd63a2f, 0x2f6fd6, 0x9c27b0, 0x4caf50, 0xffffff, 0xf5f0e1, 0xff8a65, 0xffffff];
   const crowdSpots = [];
   for (let i = 0; i < CROWD_COUNT; i++) {
@@ -415,17 +423,23 @@ export function createRaceScene(container) {
     const tier = Math.floor(Math.random() * 4);            // 4 rows deep
     const c = { x: -80 + Math.random() * (RACE_LENGTH + 180), z: side * (RIVER_HALF + 1.6 + tier * 1.3 + Math.random() * 0.8), y: tier * 0.25, ph: Math.random() * 6.3 };
     crowdSpots.push(c);
-    m.makeTranslation(c.x, 0.85 + c.y, c.z); bodies.setMatrixAt(i, m);
-    m.makeTranslation(c.x, 1.55 + c.y, c.z); heads.setMatrixAt(i, m);
+    placePerson(i, c, 0);
     bodies.setColorAt(i, col.setHex(shirt[i % shirt.length]));
+    mundus.setColorAt(i, col.setHex(mundu[(i * 7) % mundu.length]));
   }
-  scene.add(bodies, heads);
+  scene.add(mundus, bodies, heads, hair);
+  function placePerson(i, c, jump) {
+    const y = c.y + jump;
+    m.makeTranslation(c.x, 0.88 + y, c.z); mundus.setMatrixAt(i, m);
+    m.makeTranslation(c.x, 1.2 + y, c.z); bodies.setMatrixAt(i, m);
+    m.makeTranslation(c.x, 1.66 + y, c.z); heads.setMatrixAt(i, m); hair.setMatrixAt(i, m);
+  }
   const UMBRELLAS = 260;
   const umbrellas = new THREE.InstancedMesh(new THREE.ConeGeometry(1.0, 0.45, 10, 1, true), new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.8 }), UMBRELLAS);
   const umbColors = [0x111111, 0x111111, 0xd63a2f, 0x2f6fd6, 0xf3b33d, 0x2e7d32];
   for (let i = 0; i < UMBRELLAS; i++) {
     const c = crowdSpots[(i * 9) % CROWD_COUNT];
-    m.makeTranslation(c.x, 2.35 + c.y, c.z);
+    m.makeTranslation(c.x, 2.15 + c.y, c.z);
     umbrellas.setMatrixAt(i, m);
     umbrellas.setColorAt(i, col.setHex(umbColors[i % umbColors.length]));
   }
@@ -434,12 +448,9 @@ export function createRaceScene(container) {
     for (let i = 0; i < CROWD_COUNT; i++) {
       const c = crowdSpots[i];
       if (Math.abs(c.x - focusX) > 90) continue;
-      const jump = Math.max(0, Math.sin(now * 0.012 + c.ph)) * 0.35 * excite;
-      m.makeTranslation(c.x, 0.85 + c.y + jump, c.z); bodies.setMatrixAt(i, m);
-      m.makeTranslation(c.x, 1.55 + c.y + jump, c.z); heads.setMatrixAt(i, m);
+      placePerson(i, c, Math.max(0, Math.sin(now * 0.012 + c.ph)) * 0.35 * excite);
     }
-    bodies.instanceMatrix.needsUpdate = true;
-    heads.instanceMatrix.needsUpdate = true;
+    for (const mesh of [mundus, bodies, heads, hair]) mesh.instanceMatrix.needsUpdate = true;
   }
 
   const addLabel = (text, cls, x, y, z) => {
