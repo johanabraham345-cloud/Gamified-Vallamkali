@@ -9,7 +9,7 @@ Built for the Make Room for Play track: a game played across everyone's phones i
 
 Vallam Kali
 
-▶ Play: open vallamkali.vercel.app/host.html on a laptop, then scan the QR code with your phones.
+▶ Play: open vallamkalii.vercel.app on a laptop, then scan the QR code with your phones.
 
 What makes it special
 
