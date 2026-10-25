@@ -101,3 +101,45 @@ body.racing #hud { left: 12px; }
 .tap { padding: 26px; font-size: 22px; font-weight: 900; background: #fff; color: #0e3b33; }
 .tap.flash, .play.flash .tap { background: #4cd964; }
 .link { background: transparent; text-decoration: underline; color: #ddd; }
+
+/* ===== Kerala theme for the landing + phone join screens ===== */
+.landing, .play {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 120'%3E%3Cg fill='%23062b24'%3E%3Cpath d='M0 120V95c30-6 60 4 90-2s60-10 90-2 60 8 100 0 80-6 120 2v27z'/%3E%3Cpath d='M60 95c2-30 4-50 10-70M70 25c-14-6-30-4-40 4m40-4c-6-12-20-18-34-16m34 16c10-12 26-14 38-8m-38 8c16-2 28 6 34 18m-34-18c4 14 0 28-8 38' stroke='%23062b24' stroke-width='4' fill='none'/%3E%3Cpath d='M300 95c2-34 6-56 14-78M314 17c-16-4-32 0-42 10m42-10c-8-12-24-16-38-12m38 12c12-10 28-10 40-2m-40 2c16 0 28 10 32 22m-32-22c2 16-4 30-12 38' stroke='%23062b24' stroke-width='4' fill='none'/%3E%3C/g%3E%3C/svg%3E") bottom center / 100% auto no-repeat,
+    linear-gradient(180deg, #f6b25a 0%, #e9894a 22%, #2f7f74 55%, #0d4a40 80%, #062b24 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+.landing h1, .play h1 {
+  font-family: 'Anton', Impact, 'Arial Black', sans-serif; font-size: 52px; letter-spacing: 3px; margin: 0;
+  color: #fff8e1; text-shadow: 0 4px 0 #b8860b, 0 8px 24px rgba(0,0,0,0.45);
+}
+.landing h1::after, .play h1::after {
+  content: 'വള്ളംകളി'; display: block; font-family: system-ui, sans-serif; font-size: 26px; letter-spacing: 2px;
+  color: #ffd54f; text-shadow: 0 2px 8px rgba(0,0,0,0.5); margin-top: 4px;
+}
+.landing h1::before, .play h1::before { content: '🚣  🌴'; display: block; font-size: 30px; margin-bottom: 6px; }
+/* Kasavu (gold-bordered cream) cards and buttons */
+.play .screen, .landing main {
+  background: rgba(255, 248, 225, 0.12); border: 3px solid #d4a017; border-radius: 22px;
+  box-shadow: inset 0 0 0 6px rgba(255, 248, 225, 0.85), 0 12px 40px rgba(0,0,0,0.35);
+  backdrop-filter: blur(4px); margin: 24px auto; min-height: auto; padding: 28px 20px 36px;
+}
+.big, .big-btn {
+  background: linear-gradient(180deg, #ffe082, #d4a017); color: #3b2300; border: 2px solid #fff3c4;
+  box-shadow: 0 4px 0 #8d6e00, 0 8px 18px rgba(0,0,0,0.3); border-radius: 14px; font-weight: 800; letter-spacing: 0.5px;
+}
+.big.alt, .big-btn.alt {
+  background: linear-gradient(180deg, #fffdf5, #f1e6c8); color: #0d4a40; border: 2px solid #d4a017;
+  box-shadow: 0 4px 0 #b8860b, 0 8px 18px rgba(0,0,0,0.3);
+}
+.big:active, .big-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #8d6e00; }
+.play input { background: #fffdf5; border: 2px solid #d4a017; color: #3b2300; font-weight: 700; text-align: center; font-size: 18px; }
+.play input::placeholder { color: #a1887f; font-weight: 500; }
+.play .or { color: #fff8e1; font-weight: 800; letter-spacing: 4px; }
+.play .or::before, .play .or::after { content: ' ～ '; color: #ffd54f; }
+.play .seat { border: 2px solid #fff3c4; box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
+.play .beat { border-color: #ffd54f; box-shadow: 0 0 30px rgba(255, 213, 79, 0.5); }
+.play #beatDot { background: radial-gradient(circle, #fff8e1, #ffd54f); }
+.play .tap { background: linear-gradient(180deg, #fffdf5, #f1e6c8); color: #0d4a40; border: 3px solid #d4a017; box-shadow: 0 5px 0 #b8860b; }
+.landing p, .play h2, .play p { color: #fff8e1; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
