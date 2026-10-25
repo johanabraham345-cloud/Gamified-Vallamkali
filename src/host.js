@@ -13,6 +13,7 @@ import {
 } from './config.js';
 import { createRaceScene } from './scene.js';
 import * as audio from './audio.js';
+import * as commentary from './commentary.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -272,10 +273,12 @@ function startRace() {
   game.finishAt = 0;
   game.phase = 'countdown';
   audio.init();
+  commentary.onRaceStart();
   updateLobbyPresence();
 }
 
 function backToLobby() {
+  commentary.onLobby();
   game.phase = 'lobby';
   game.boats = [newBoat(), newBoat()];
   game.winner = null;
@@ -293,6 +296,8 @@ $('clearBotsBtn').onclick = () => {
 $('publicToggle').onchange = (e) => { game.isPublic = e.target.checked; updateLobbyPresence(); };
 
 // Sound: browsers only allow audio after a click, so start it on the first click anywhere.
+audio.prepare();          // silent until the first click, but lets the commentary load now
+commentary.preload();
 window.addEventListener('pointerdown', () => audio.init(), { once: true });
 const updateMuteLabel = () => { $('muteBtn').textContent = audio.isMuted() ? '🔇 Sound off' : '🔊 Sound on'; };
 $('muteBtn').onclick = () => { audio.init(); audio.toggleMute(); updateMuteLabel(); };
@@ -437,6 +442,7 @@ function drawHud() {
   el.style.color = game.phase === 'finished' && game.winner != null ? TEAMS[game.winner].css : '#fff';
 
   // ---- Sound ----
+  commentary.update(game);
   if (racing) {
     const iv = 60000 / game.bpm;
     const beat = Math.floor((now - game.anchor) / iv) + game.beatBase;
