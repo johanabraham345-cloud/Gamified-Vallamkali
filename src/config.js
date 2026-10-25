@@ -71,5 +71,5 @@ export const NET_GRACE_MS = 250;
 
 // Stroke detection on the phone.
 export const STROKE_COOLDOWN_MS = 350;      // minimum gap between two strokes (taps and motion)
-export const STROKE_THRESHOLD = 5;          // motion above this = one stroke
+export const STROKE_THRESHOLD = 6;          // motion above this = one stroke
 export const REARM_LEVEL = 4;               // motion must drop below this before the next stroke can count
