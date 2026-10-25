@@ -1,5 +1,6 @@
 // All the tunable game numbers live here, so you can tweak the feel without digging through code.
 
+export const PUBLIC_AUTOSTART = 6;   // public races start by themselves once each boat has this many rowers
 export const MAX_PER_TEAM = 6;       // rowers per boat: 3 rows, left + right (max 10)
 export const RACE_LENGTH = 800;      // metres to the finish line
 
