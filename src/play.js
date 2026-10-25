@@ -2,7 +2,7 @@
 // from the motion sensor (or a tap button) and shows the beat.
 import './style.css';
 import { supabase, configOk, showConfigError, localNow, makeId, LOBBY_CHANNEL, roomChannelName } from './net.js';
-import { TEAMS, STROKE_COOLDOWN_MS, STROKE_THRESHOLD, REARM_LEVEL } from './config.js';
+import { TEAMS, STROKE_COOLDOWN_MS, STROKE_THRESHOLD, REARM_LEVEL, PUBLIC_AUTOSTART } from './config.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -47,23 +47,52 @@ $('publicBtn').onclick = () => {
   $('searchInfo').textContent = 'Searching public rooms…';
 
   lobby = supabase.channel(LOBBY_CHANNEL, { config: { presence: { key: myId } } });
-  lobby.on('presence', { event: 'sync' }, () => {
-    const rooms = Object.values(lobby.presenceState())
-      .map((metas) => metas[0])
-      .filter((r) => r && r.code && r.isPublic && r.phase === 'lobby' && r.players < r.max);
-    if (!rooms.length) {
-      $('searchInfo').textContent = 'No open public races yet. Waiting for a host…';
-      return;
-    }
-    // Fill rooms up so races start sooner: pick the fullest room that still has space.
-    rooms.sort((a, b) => b.players - a.players);
-    const target = rooms[0];
+  const openRooms = () => Object.values(lobby.presenceState())
+    .map((metas) => metas[0])
+    .filter((r) => r && r.code && r.isPublic && r.phase === 'lobby' && r.players < r.max)
+    .sort((a, b) => b.players - a.players);       // fill the fullest room first, so races start sooner
+  const goTo = (code, hosting) => {
+    clearTimeout(decide);
     supabase.removeChannel(lobby);
     lobby = null;
-    joinRoom(target.code, name);
+    if (hosting) startBackgroundServer(code);
+    joinRoom(code, name, hosting ? 20000 : 3500);
+  };
+  lobby.on('presence', { event: 'sync' }, () => {
+    const rooms = openRooms();
+    if (rooms.length) goTo(rooms[0].code, false);
   });
+  // Nobody hosting a public race? Then this phone starts one (after a small random wait,
+  // in case another phone is doing the same thing right now).
+  const decide = setTimeout(() => {
+    if (!lobby) return;
+    $('searchInfo').textContent = 'No open race found. Starting a new public race…';
+    setTimeout(() => {
+      if (!lobby) return;
+      const rooms = openRooms();
+      if (rooms.length) goTo(rooms[0].code, false);
+      else goTo(newCode(), true);
+    }, 500 + Math.random() * 1500);
+  }, 2500);
   lobby.subscribe();
 };
+
+// ---------- Hosting a public race from this phone ----------
+let serverFrame = null;
+const newCode = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
+function startBackgroundServer(code) {
+  serverFrame = document.createElement('iframe');
+  serverFrame.src = `/host.html?headless=1&autostart=${PUBLIC_AUTOSTART}&code=${code}`;
+  Object.assign(serverFrame.style, { position: 'fixed', width: '1px', height: '1px', left: '0', bottom: '0', opacity: '0', border: '0', pointerEvents: 'none' });
+  document.body.appendChild(serverFrame);
+  hostingNote.classList.remove('hidden');
+  navigator.wakeLock?.request('screen').catch(() => {});   // keep the screen on while hosting
+}
+const hostingNote = document.createElement('div');
+hostingNote.className = 'small hidden';
+hostingNote.style.cssText = 'color:#ffd54f;font-weight:700;';
+hostingNote.textContent = "You started this public race. Keep this screen open, or the race ends for everyone.";
+$('phaseInfo').after(hostingNote);
 
 $('cancelSearch').onclick = () => {
   if (lobby) supabase.removeChannel(lobby);
@@ -81,7 +110,7 @@ $('privateBtn').onclick = () => {
 };
 
 // ---------- Room ----------
-function joinRoom(code, name) {
+function joinRoom(code, name, hostWaitMs = 3500) {
   roomCode = code;
   state = null;
   bestRtt = Infinity;
@@ -118,7 +147,7 @@ function joinRoom(code, name) {
         leaveRoom();
         $('joinError').textContent = `Room ${code} not found`;
       }
-    }, 3500);
+    }, hostWaitMs);
   });
 }
 
@@ -134,6 +163,7 @@ setInterval(() => { if (room) syncClock(); }, 15000);
 
 function leaveRoom() {
   if (room) supabase.removeChannel(room);
+  if (serverFrame) { serverFrame.remove(); serverFrame = null; hostingNote.classList.add('hidden'); }
   room = null;
   roomCode = null;
   state = null;
@@ -159,7 +189,9 @@ function renderState() {
   }
 
   const phaseText = {
-    lobby: `Room ${roomCode} · waiting for the host to start`,
+    lobby: state.need
+      ? `Waiting for crews · Red ${state.counts[0]}/${state.need} · Blue ${state.counts[1]}/${state.need}`
+      : `Room ${roomCode} · waiting for the host to start`,
     countdown: 'Get ready…',
     race: 'ROW ON THE BEAT!',
     finished: state.winner != null ? `${TEAMS[state.winner].name} boat wins!` : 'Finished',
@@ -253,7 +285,7 @@ $('motionBtn').onclick = async () => {
       if (res !== 'granted') { $('debug').textContent = 'Motion permission denied'; return; }
     }
     window.addEventListener('devicemotion', onMotion);
-    $('motionBtn').textContent = 'Motion on ✓ (row with your phone!)';
+    $('motionBtn').textContent = 'Motion on: row with your phone';
     $('motionBtn').disabled = true;
     try { await navigator.wakeLock?.request('screen'); } catch { /* not critical */ }
   } catch (err) {
