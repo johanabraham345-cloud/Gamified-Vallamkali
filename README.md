@@ -1,4 +1,4 @@
-allam Kali — Row Together, Win Together
+**Vallam Kali** — Row Together, Win Together
 
 A multiplayer snake-boat race played with your phones. Everyone in the room scans a QR code, their phone becomes a paddle, and two crews race a 3D chundan vallam down a palm-lined Kerala backwater, live on the big screen. The fastest rowers don't win. The crew that rows in sync does.
 
