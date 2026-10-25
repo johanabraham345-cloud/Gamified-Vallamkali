@@ -1,6 +1,6 @@
 // All the tunable game numbers live here, so you can tweak the feel without digging through code.
 
-export const MAX_PER_TEAM = 2;       // TEST MODE: 2 rowers per boat (front row, left + right). Raise later (max 10).
+export const MAX_PER_TEAM = 6;       // rowers per boat: 3 rows, left + right (max 10)
 export const RACE_LENGTH = 800;      // metres to the finish line
 
 export const TEAMS = [
