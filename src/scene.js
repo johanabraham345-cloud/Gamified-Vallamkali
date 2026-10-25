@@ -759,7 +759,7 @@ export function createRaceScene(container) {
         new THREE.SphereGeometry(0.13 * ROWER_SCALE, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
         new THREE.MeshStandardMaterial({ color: TEAMS[p.team].color })
       );
-      if (bones?.head) group.add(cap);
+      //if (bones?.head) group.add(cap);
 
       const paddle = makePaddle();
       group.add(paddle);
