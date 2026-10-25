@@ -118,7 +118,7 @@ body.racing #hud { left: 12px; }
   content: 'വള്ളംകളി'; display: block; font-family: system-ui, sans-serif; font-size: 26px; letter-spacing: 2px;
   color: #ffd54f; text-shadow: 0 2px 8px rgba(0,0,0,0.5); margin-top: 4px;
 }
-.landing h1::before, .play h1::before { content: '🚣  🌴'; display: block; font-size: 30px; margin-bottom: 6px; }
+.landing h1::before, .play h1::before { content: 'KOCHI'S'; display: block; font-size: 30px; margin-bottom: 6px; }
 /* Kasavu (gold-bordered cream) cards and buttons */
 .play .screen, .landing main {
   background: rgba(255, 248, 225, 0.12); border: 3px solid #d4a017; border-radius: 22px;
